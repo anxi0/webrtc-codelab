@@ -1,6 +1,6 @@
 const mediaStreamConstraints = {
   video: true,
-  //   audio: true,
+  audio: true,
 };
 
 const offerOptions = {
@@ -19,6 +19,7 @@ const hangupButton = document.querySelector("#hangup");
 
 startButton.addEventListener("click", startAction);
 callButton.addEventListener("click", callAction);
+hangupButton.addEventListener("click", hangupAction);
 
 let localStream;
 let remoteStream;
@@ -30,6 +31,33 @@ function startAction(event) {
     .then(gotLocalMediaStream);
 }
 
+function callAction(event) {
+  callButton.disabled = true;
+  hangupButton.disabled = false;
+
+  const servers = null;
+
+  localPeerConnection = new RTCPeerConnection(servers);
+  localPeerConnection.addEventListener("icecandidate", handleConnection);
+
+  remotePeerConnection = new RTCPeerConnection(servers);
+  remotePeerConnection.addEventListener("icecandidate", handleConnection);
+  remotePeerConnection.addEventListener("addstream", gotRemoteMediaStream);
+
+  localPeerConnection.addStream(localStream);
+  localPeerConnection.createOffer(offerOptions).then(createdOffer);
+}
+
+function hangupAction() {
+  localPeerConnection.close();
+  remotePeerConnection.close();
+  localPeerConnection = null;
+  remotePeerConnection = null;
+  remoteVideo.srcObject = null;
+  hangupButton.disabled = true;
+  callButton.disabled = false;
+}
+
 function handleConnection(event) {
   const peerConnection = event.target;
   const iceCandidate = event.candidate;
@@ -39,52 +67,27 @@ function handleConnection(event) {
     const otherPeer = getOtherPeer(peerConnection);
 
     otherPeer.addIceCandidate(newIceCandidate).then(() => {
-      console.log("addIceCandidate success!");
+      console.log("addIce success");
     });
   }
 }
 
-function handleConnectionChange(event) {
-  console.log("ICE state changed", event);
+function createdOffer(description) {
+  localPeerConnection.setLocalDescription(description);
+
+  remotePeerConnection.setRemoteDescription(description);
+  remotePeerConnection.createAnswer().then(createdAnswer);
 }
 
-function callAction(event) {
-  callButton.disabled = true;
-  hangupButton.disabled = false;
-
-  const videotracks = localStream.getVideoTracks();
-  const audiotracks = localStream.getAudioTracks();
-
-  const servers = null;
-
-  localPeerConnection = new RTCPeerConnection(servers);
-
-  localPeerConnection.addEventListener("icecandidate", handleConnection);
-  localPeerConnection.addEventListener(
-    "iceconnectionstatechange",
-    handleConnectionChange
-  );
-
-  remotePeerConnection = new RTCPeerConnection(servers);
-
-  remotePeerConnection.addEventListener("icecandidate", handleConnection);
-  remotePeerConnection.addEventListener(
-    "iceconnectionstatechange",
-    handleConnectionChange
-  );
-
-  remotePeerConnection.addEventListener("addstream", gotRemoteMediaStream);
-
-  localPeerConnection.addStream(localStream);
-
-  localPeerConnection.createOffer(offerOptions);
+function createdAnswer(description) {
+  remotePeerConnection.setLocalDescription(description);
+  localPeerConnection.setRemoteDescription(description);
 }
 
 function gotLocalMediaStream(mediaStream) {
+  callButton.disabled = false;
   localVideo.srcObject = mediaStream;
   localStream = mediaStream;
-  trace("Received local stream.");
-  callButton.disabled = false;
 }
 
 function gotRemoteMediaStream(event) {
@@ -97,17 +100,4 @@ function getOtherPeer(peerConnection) {
   return peerConnection === localPeerConnection
     ? remotePeerConnection
     : localPeerConnection;
-}
-
-function getPeerName(peerConnection) {
-  return peerConnection === localPeerConnection
-    ? "localPeerConnection"
-    : "remotePeerConnection";
-}
-
-function trace(text) {
-  text = text.trim();
-  const now = (window.performance.now() / 1000).toFixed(3);
-
-  console.log(now, text);
 }

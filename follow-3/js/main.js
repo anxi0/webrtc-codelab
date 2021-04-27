@@ -8,9 +8,9 @@ var pcConstraint;
 var dataConstraint;
 var dataChannelSend = document.querySelector("textarea#dataChannelSend");
 var dataChannelReceive = document.querySelector("textarea#dataChannelReceive");
-var startButton = document.querySelector("button#startButton");
-var sendButton = document.querySelector("button#sendButton");
-var closeButton = document.querySelector("button#closeButton");
+var startButton = document.querySelector("button#start");
+var sendButton = document.querySelector("button#send");
+var closeButton = document.querySelector("button#close");
 
 startButton.onclick = createConnection;
 sendButton.onclick = sendData;
@@ -25,49 +25,31 @@ function disableSendButton() {
 }
 
 function createConnection() {
+  startButton.disabled = true;
+  sendButton.disabled = false;
+  dataChannelSend.disabled = false;
   dataChannelSend.placeholder = "";
-  var servers = null;
-  pcConstraint = null;
-  dataConstraint = null;
-  // For SCTP, reliable and ordered delivery is true by default.
-  // Add localConnection to global scope to make it visible
-  // from the browser console.
-  window.localConnection = localConnection = new RTCPeerConnection(
-    servers,
-    pcConstraint
-  );
-
+  closeButton.disabled = false;
+  localConnection = new RTCPeerConnection();
   sendChannel = localConnection.createDataChannel(
     "sendDataChannel",
     dataConstraint
   );
-
   localConnection.onicecandidate = iceCallback1;
-  sendChannel.onopen = onSendChannelStateChange;
-  sendChannel.onclose = onSendChannelStateChange;
+  localConnection.onopen = onSendChannelStateChange;
+  localConnection.onclose = onSendChannelStateChange;
 
-  // Add remoteConnection to global scope to make it visible
-  // from the browser console.
-  window.remoteConnection = remoteConnection = new RTCPeerConnection(
-    servers,
-    pcConstraint
-  );
-
+  remoteConnection = new RTCPeerConnection();
   remoteConnection.onicecandidate = iceCallback2;
   remoteConnection.ondatachannel = receiveChannelCallback;
 
-  localConnection
-    .createOffer()
-    .then(gotDescription1, onCreateSessionDescriptionError);
-  startButton.disabled = true;
-  closeButton.disabled = false;
+  localConnection.createOffer().then(gotDescription1);
 }
 
 function onCreateSessionDescriptionError(error) {}
 
 function sendData() {
-  var data = dataChannelSend.value;
-  sendChannel.send(data);
+  sendChannel.send(dataChannelSend.value);
 }
 
 function closeDataChannels() {
@@ -123,8 +105,6 @@ function onAddIceCandidateError(error) {}
 function receiveChannelCallback(event) {
   receiveChannel = event.channel;
   receiveChannel.onmessage = onReceiveMessageCallback;
-  receiveChannel.onopen = onReceiveChannelStateChange;
-  receiveChannel.onclose = onReceiveChannelStateChange;
 }
 
 function onReceiveMessageCallback(event) {

@@ -43,6 +43,7 @@ function handleLocalMediaStreamError(error) {
 
 // Handles remote MediaStream success by adding it as the remoteVideo src.
 function gotRemoteMediaStream(event) {
+  console.log("I'm in");
   const mediaStream = event.stream;
   remoteVideo.srcObject = mediaStream;
   remoteStream = mediaStream;
